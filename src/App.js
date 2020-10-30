@@ -1,9 +1,12 @@
+import './logo.svg';
 import './App.css';
 import React, { Component } from 'react';
 import axios from 'axios';
 import { CanvasJSChart } from 'canvasjs-react-charts';
 import _ from 'lodash';
 import USAMap from "react-usa-map";
+import Switch from "react-switch";
+import LoadingScreen from 'react-loading-screen'
 
 const states = [
   'Alabama',
@@ -115,9 +118,13 @@ class App extends Component {
   constructor(props) {
     super(props)
     this.state = {
+      covid_loaded: false,
+      polls_loaded: false,
       covid_data: [],
       state: null,
       abbr: null,
+      daily: true,
+      cases: false,
       polling_data: [],
       covid_data_by_state: [],
       polling_data_by_state: [],
@@ -192,7 +199,7 @@ class App extends Component {
     this.setState({
       state: states[state_index],
       abbr: event.target.dataset.name
-    }, this.selectData(states[state_index]))
+    }, this.selectData(states[state_index], this.state.daily, this.state.cases))
     let highlight = {}
     highlight[event.target.dataset.name] = {
       fill: "#CC0000"
@@ -363,7 +370,10 @@ class App extends Component {
   getCovidData() {
     axios.get(`https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv`)
          .then(response => {
-        this.parseCovidData(response.data);
+           this.setState({
+              covid_loaded: true
+           }, this.parseCovidData(response.data))
+        ;
       })
   }
 
@@ -408,7 +418,10 @@ class App extends Component {
   getPollingData() {
     axios.get(`https://cors-anywhere.herokuapp.com/https://projects.fivethirtyeight.com/2020-general-data/presidential_state_toplines_2020.csv`)
          .then(response => {
-          this.parsePollingData(response.data)
+           this.setState({
+              polls_loaded: true
+           }, this.parsePollingData(response.data))
+          
       })
   }
 
@@ -450,31 +463,36 @@ class App extends Component {
     })
   }
 
-  selectData(state) {
+  selectData(state, daily, cases) {
+    console.log(state)
+    console.log(daily)
+    console.log(cases)
     let covid_data = _.find(this.state.covid_data_by_state, function(x) {
       return (x.state === state)
     })
     let polling_data = _.find(this.state.polling_data_by_state, function(x) {
       return (x.state === state)
     })
-    let final_covid_data = [];
+    let cumulative_covid_data = [];
     for(var i = 0; i < covid_data.data.dates.length; i++) {
-      final_covid_data.push({x: covid_data.data.dates[i], y: parseInt(covid_data.data.deaths[i]), color: "black"})
+      cumulative_covid_data.push({x: covid_data.data.dates[i], y: parseInt(cases ? covid_data.data.cases[i] : covid_data.data.deaths[i]), color: "black"})
     }
+    let final_covid_data = []
+    for(var i = 0; i < covid_data.data.dates.length - 1; i++) {
+      final_covid_data.push({x: cumulative_covid_data[i].x, y: Math.max(cumulative_covid_data[i + 1].y - cumulative_covid_data[i].y, 0), color: "black"})
+    }
+  
     let biden_polling_data = [];
     let trump_polling_data = [];
     let sorted_dates = _.orderBy(polling_data.data.dates, null, "desc")
-    let tryt = JSON.stringify(sorted_dates) === JSON.stringify(polling_data.data.dates)
-    console.log(sorted_dates)
-    console.log(polling_data.data.dates)
-    console.log(tryt)
     for(i = 0; i < polling_data.data.dates.length; i++) {
       let index = _.indexOf(polling_data.data.dates, sorted_dates[i])
       biden_polling_data.push({x: sorted_dates[i], y: parseInt(polling_data.data.joe_polls[index]), color: "blue"})
       trump_polling_data.push({x: sorted_dates[i], y: parseInt(polling_data.data.don_polls[index]), color: "red"})
     }
     let data = this.state.options.data;
-    data[0].dataPoints = final_covid_data;
+    data[0].dataPoints = daily ? final_covid_data : cumulative_covid_data;
+    data[0].name = cases ? "Covid Cases" : "Covid Deaths"
     data[1].dataPoints = biden_polling_data;
     data[2].dataPoints = trump_polling_data;
     this.setState({
@@ -483,19 +501,48 @@ class App extends Component {
         ...this.state.options,
         data: data,
         title: {
-          text: "Presidential Polls vs Covid Deaths for " + state
+          text: "Presidential Polls vs " + (daily ? "Daily " : "Cumulative ") + (cases ? "Covid Cases" : "Covid Deaths") + " for " + state
+        },
+        axisY: {
+          ...this.state.options.axisY,
+          title: (daily ? "Daily " : "Cumulative ") + (cases ? "Covid Cases" : "Covid Deaths")
         }
       }
     })
   }
 
   render() {
-    return (
-      <div style={{width: "1000px", margin: 'auto', paddingTop: '50px'}}>
-        <CanvasJSChart options = {this.state.options} onRef={ref => this.chart = ref} />
-        <USAMap customize={this.statesCustomConfig()} onClick={this.mapHandler} />
-      </div>
-    );
+    if(this.state.covid_loaded && this.state.polls_loaded) {
+      return (
+        <div style={{width: "1000px", margin: 'auto', paddingTop: '50px'}}>
+          {this.state.state && (
+            <React.Fragment>
+              <div style={{width: "950px", display: "inline-block", float: 'left'}}>       
+                <h4>{this.state.daily ? 'Daily' : 'Cumulative'}</h4><Switch onChange={() => this.setState({ daily: !this.state.daily }, this.selectData(this.state.state, !this.state.daily, this.state.cases))} checked={this.state.daily} />
+              </div>
+              <div style={{width: "50px", display: "inline-block", float: 'left'}}>
+                <h4>{this.state.cases ? 'Cases' : 'Deaths'}</h4><Switch onChange={() => this.setState({ cases: !this.state.cases }, this.selectData(this.state.state, this.state.daily, !this.state.cases))} checked={this.state.cases} />
+              </div>
+            </React.Fragment>
+          )}
+          <div style={{width: "1000px", display: "inline-block", float: 'left'}}>
+          <CanvasJSChart options = {this.state.options} onRef={ref => this.chart = ref} />
+          </div>
+          <USAMap customize={this.statesCustomConfig()} onClick={this.mapHandler} />
+        </div>
+      );
+    }
+    if (!this.state.covid_loaded || !this.state.polls_loaded) {
+      return(
+        <LoadingScreen
+          loading={true}
+          bgColor='#f1f1f1'
+          spinnerColor='#9ee5f8'
+          textColor='#676767'
+          text='Data is loading, please wait.'
+        /> 
+      );
+    }   
   }
 }
 
