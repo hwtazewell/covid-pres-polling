@@ -1,1 +1,3 @@
-https://main.duaps6fphx0mg.amplifyapp.com/?fbclid=IwAR1M9uGaoHzrHQOsYdqf43-C6EhhldPjVsnAotUpvNRBOGxeN3HWjRPOFiw
+An interactive graph that shows covid data superimposed onto presidential polling data by state.
+
+https://main.duaps6fphx0mg.amplifyapp.com

@@ -416,7 +416,7 @@ class App extends Component {
   }
 
   getPollingData() {
-    axios.get(`https://cors-anywhere.herokuapp.com/https://projects.fivethirtyeight.com/2020-general-data/presidential_state_toplines_2020.csv`)
+    axios.get(`https://projects.fivethirtyeight.com/2020-general-data/presidential_state_toplines_2020.csv`)
          .then(response => {
            this.setState({
               polls_loaded: true
