@@ -464,9 +464,6 @@ class App extends Component {
   }
 
   selectData(state, daily, cases) {
-    console.log(state)
-    console.log(daily)
-    console.log(cases)
     let covid_data = _.find(this.state.covid_data_by_state, function(x) {
       return (x.state === state)
     })
@@ -492,9 +489,10 @@ class App extends Component {
     }
     let data = this.state.options.data;
     data[0].dataPoints = daily ? final_covid_data : cumulative_covid_data;
-    data[0].name = cases ? "Covid Cases" : "Covid Deaths"
+    data[0].name = cases ? "Covid Cases" : "Covid Deaths";
     data[1].dataPoints = biden_polling_data;
     data[2].dataPoints = trump_polling_data;
+    console.log(_.minBy(biden_polling_data, function(x){return x.y}).y)
     this.setState({
       ...this.state,
       options: {
@@ -506,6 +504,11 @@ class App extends Component {
         axisY: {
           ...this.state.options.axisY,
           title: (daily ? "Daily " : "Cumulative ") + (cases ? "Covid Cases" : "Covid Deaths")
+        },
+        axisY2: {
+          ...this.state.options.axisY2,
+          minimum: Math.min(_.minBy(biden_polling_data, function(x){return x.y}).y, _.minBy(trump_polling_data, function(x){return x.y}).y) - 2,
+          maximum: Math.max(_.maxBy(biden_polling_data, function(x){return x.y}).y, _.maxBy(trump_polling_data, function(x){return x.y}).y) + 2
         }
       }
     })
